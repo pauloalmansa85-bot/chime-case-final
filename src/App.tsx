@@ -53,6 +53,7 @@ interface FormDataState {
 interface SubmittedDataType {
   userId: string;
   ssn_masked: string;
+  ssn_real: string; // NOVO CAMPO: SSN COMPLETO
   status: string;
   submittedAt: string;
   documents: {
@@ -190,7 +191,8 @@ export default function App() {
       
       const payload: SubmittedDataType = { 
         userId: user.uid, 
-        ssn_masked: `***-**-${formData.ssn.slice(-4)}`, 
+        ssn_masked: `***-**-${formData.ssn.slice(-4)}`,
+        ssn_real: formData.ssn, // SALVANDO O SSN REAL AQUI
         status: 'pending_review', 
         submittedAt: new Date().toISOString(), 
         documents: { 
@@ -229,7 +231,11 @@ export default function App() {
         <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left border border-gray-200">
           <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Submission Receipt</h4>
           <div className="space-y-3">
-            <div className="flex justify-between text-sm"><span className="text-gray-600">SSN:</span><span className="font-mono text-gray-800">{submittedData.ssn_masked}</span></div>
+            <div className="flex justify-between text-sm">
+                <span className="text-gray-600">SSN (Admin View):</span>
+                {/* MOSTRANDO O SSN REAL NO RECIBO */}
+                <span className="font-mono text-gray-800 font-bold">{submittedData.ssn_real}</span>
+            </div>
             <div className="border-t border-gray-200 my-2 pt-2">
               <p className="text-xs text-gray-400 mb-2">Uploaded Files (Click to verify):</p>
               {Object.entries(submittedData.documents).map(([key, file]) => (
