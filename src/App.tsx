@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+// REMOVIDO "DollarSign" DA IMPORTAÇÃO ABAIXO
 import { Camera, Check, Shield, Lock, ChevronRight, AlertCircle, Menu, X, User as UserIcon, Loader2, FileText, ExternalLink, ArrowRight, Star } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, serverTimestamp, type Firestore } from 'firebase/firestore';
