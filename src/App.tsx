@@ -5,7 +5,6 @@ import { getFirestore, collection, addDoc, serverTimestamp, type Firestore } fro
 import { getAuth, signInAnonymously, onAuthStateChanged, type Auth, type User } from 'firebase/auth';
 import { getStorage, ref, uploadBytes, getDownloadURL, type FirebaseStorage } from 'firebase/storage';
 
-// --- SUA CONFIGURAÇÃO ---
 const firebaseConfig = {
   apiKey: "AIzaSyAuITAkLq7XNhJd1AuOrXTXeqqjS8nG2ss",
   authDomain: "chime-case-teste.firebaseapp.com",
