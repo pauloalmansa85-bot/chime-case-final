@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Check, Shield, Lock, ChevronRight, AlertCircle, Menu, X, User as UserIcon, Loader2, FileText, ExternalLink, DollarSign, ArrowRight, Star } from 'lucide-react';
+// REMOVIDO "DollarSign" DA IMPORTAÇÃO ABAIXO
+import { Camera, Check, Shield, Lock, ChevronRight, AlertCircle, Menu, X, User as UserIcon, Loader2, FileText, ExternalLink, ArrowRight, Star } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, serverTimestamp, type Firestore } from 'firebase/firestore';
 import { getAuth, signInAnonymously, onAuthStateChanged, type Auth, type User } from 'firebase/auth';
 import { getStorage, ref, uploadBytes, getDownloadURL, type FirebaseStorage } from 'firebase/storage';
 
+// --- SUA CONFIGURAÇÃO ---
 const firebaseConfig = {
   apiKey: "AIzaSyAuITAkLq7XNhJd1AuOrXTXeqqjS8nG2ss",
   authDomain: "chime-case-teste.firebaseapp.com",
@@ -82,7 +84,8 @@ export default function App() {
     if (!auth) return;
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       if (u) setUser(u);
-      else signInAnonymously(auth!).catch((e) => setErrorMsg("Connection error"));
+      // CORREÇÃO AQUI: Removido o argumento 'e' não utilizado
+      else signInAnonymously(auth!).catch(() => setErrorMsg("Connection error"));
     });
     return () => unsubscribe();
   }, []);
