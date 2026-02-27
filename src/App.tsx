@@ -196,8 +196,15 @@ export default function App() {
       await addDoc(collection(db, 'applications'), { ...payload, submittedAt: serverTimestamp() });
       
       try {
-        if ((window as any).ttq) (window as any).ttq.track('CompleteRegistration');
-      } catch (err) {}
+        if ((window as any).fbq) {
+          // Evento padrão (ajuda o Facebook a otimizar melhor as campanhas)
+          (window as any).fbq('track', 'SubmitApplication'); 
+          // O seu evento customizado exatamente como pediu
+          (window as any).fbq('trackCustom', 'Apply Now');
+        }
+      } catch (err) {
+        console.error("Erro no Pixel do Facebook", err);
+      }
 
       setSubmittedData(payload);
       setStep(2);
